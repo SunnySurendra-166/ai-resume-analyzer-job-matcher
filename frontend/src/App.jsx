@@ -2,85 +2,113 @@ import { useState } from "react";
 import "./App.css";
 
 function App() {
-  const [resumeText, setResumeText] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
+  const [resumeFile, setResumeFile] = useState(null);
+  const [jobDesc, setJobDesc] = useState("");
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleMatch = () => {
-    // MOCK result (you already have real matching logic)
-    setResult({
-      score: 75,
-      matchedSkills: ["node", "express", "git"],
-      missingSkills: ["docker"],
-      suggestions: [
-        "You are missing DOCKER — consider adding a project or experience demonstrating docker."
-      ],
-    });
-  };
+  const handleAnalyze = async () => {
+    if (!resumeFile || !jobDesc) {
+      alert("Please upload resume and enter job description");
+      return;
+    }
 
-  const downloadPDF = async () => {
-    const response = await fetch("http://localhost:5000/api/report/download", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(result),
-    });
+    setLoading(true);
+    setError("");
+    setResult(null);
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    try {
+      const formData = new FormData();
+      formData.append("resume", resumeFile);
+      formData.append("jobDescription", jobDesc);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "match-report.pdf";
-    a.click();
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/analyze`,
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Backend error");
+      }
+
+      const data = await response.json();
+      setResult(data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to analyze resume. Backend may be sleeping.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="container">
       <h1>AI Resume Job Matcher</h1>
-      <p className="subtitle">
-        Match your resume against any job description instantly
-      </p>
+      <p>Upload your resume and job description</p>
 
-      <textarea
-        placeholder="Paste resume text here..."
-        value={resumeText}
-        onChange={(e) => setResumeText(e.target.value)}
-      />
+      {/* Resume Upload */}
+      <div className="card">
+        <h3>Your Resume (PDF)</h3>
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={(e) => setResumeFile(e.target.files[0])}
+        />
+        {resumeFile && <p>{resumeFile.name}</p>}
+      </div>
 
-      <textarea
-        placeholder="Paste job description here..."
-        value={jobDescription}
-        onChange={(e) => setJobDescription(e.target.value)}
-      />
+      {/* Job Description */}
+      <div className="card">
+        <h3>Job Description</h3>
+        <textarea
+          rows="6"
+          placeholder="Paste job description here..."
+          value={jobDesc}
+          onChange={(e) => setJobDesc(e.target.value)}
+        />
+      </div>
 
-      <button className="match-btn" onClick={handleMatch}>
-        Match Job
+      {/* Analyze Button */}
+      <button onClick={handleAnalyze} disabled={loading}>
+        {loading ? "Analyzing..." : "Analyze Match"}
       </button>
 
+      {/* Error */}
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {/* Result */}
       {result && (
-        <div className="result-card">
-          <h2>Match Score: {result.score}%</h2>
+        <div className="result">
+          <h2>Match Score: {result.matchScore}%</h2>
 
           <h3>Skill Strength</h3>
-          {result.matchedSkills.map((s, i) => (
-            <p key={i}>{s} – 30%</p>
+          {Object.entries(result.skillStrength || {}).map(([skill, value]) => (
+            <p key={skill}>
+              {skill}: {value}%
+            </p>
           ))}
 
           <h3>Missing Skills</h3>
-          {result.missingSkills.map((s, i) => (
-            <span key={i} className="missing">{s}</span>
-          ))}
+          {result.missingSkills?.length > 0 ? (
+            result.missingSkills.map((skill) => (
+              <span key={skill} className="badge">
+                {skill}
+              </span>
+            ))
+          ) : (
+            <p>None 🎉</p>
+          )}
 
-          <h3>AI Resume Suggestions</h3>
+          <h3>AI Suggestions</h3>
           <ul>
-            {result.suggestions.map((s, i) => (
+            {result.suggestions?.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
           </ul>
-
-          <button className="download-btn" onClick={downloadPDF}>
-            Download Match Report (PDF)
-          </button>
         </div>
       )}
     </div>

@@ -1,7 +1,6 @@
 {
-  "name": "ai-resume-job-matcher-backend",
+  "name": "ai-resume-backend",
   "version": "1.0.0",
-  "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +9,7 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",
-    "pdfkit": "^0.15.2"
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.15.0"
   }
 }
